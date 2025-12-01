@@ -1,5 +1,6 @@
 redis[asyncio]>=4.6.0
 #aioredis==2.0.1
+alembic>=1.13.0
 annotated-types==0.7.0
 anyio==4.8.0
 async-timeout==5.0.1
