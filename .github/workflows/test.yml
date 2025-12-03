@@ -70,7 +70,7 @@ jobs:
         run: |
           export PGPASSWORD=$DB_PASS
           psql -h $DB_HOST -U $DB_USER -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
-          psql -h $DB_HOST -U $DB_USER -d postgres -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+          psql -h $DB_HOST -U $DB_USER -d postgres -c "CREATE DATABASE $DB_NAME OWNER \"$DB_USER\";"
 
       - name: Apply migrations
         env:
