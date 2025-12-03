@@ -9,81 +9,115 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:14   # Pin version to match local setup
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: mytestdb  # <-- Dedicated test DB name
+          POSTGRES_DB: mytestdb
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="pg_isready -U user -d mytestdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          
+
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       - name: Install dependencies
-        env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
         run: |
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install  # if you use Playwright for e2e tests
-      
+          playwright install  # if you use Playwright
+
       - name: Run unit tests
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
         run: |
           source venv/bin/activate
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/unit/ --cov=app --cov-report=xml --cov-append
 
-      - name: Debug DATABASE_URL
-        run: echo $DATABASE_URL
+      # Drop and recreate DB before migrations (clean slate)
+      - name: Reset database
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
-        
-      - name: Apply migrations 
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
+        run: |
+          export PGPASSWORD=$DB_PASS
+          psql -h $DB_HOST -U $DB_USER -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+          psql -h $DB_HOST -U $DB_USER -d postgres -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+
+      - name: Apply migrations
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
         run: |
           source venv/bin/activate
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
+          echo "Using DATABASE_URL=$DATABASE_URL"
           alembic upgrade head
 
       - name: Debug DB schema
         env:
-          PGPASSWORD: password
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
         run: |
-          psql -h localhost -U user -d mytestdb -c '\dt'
+          export PGPASSWORD=$DB_PASS
+          psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c '\dt'
 
       - name: Run integration tests
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
         run: |
           source venv/bin/activate
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/integration/ --cov=app --cov-report=xml --cov-append
 
       - name: Run E2E tests
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
+          DB_USER: user
+          DB_PASS: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mytestdb
         run: |
           source venv/bin/activate
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/e2e/ --cov=app --cov-report=xml --cov-append
 
       - name: Merge coverage reports
