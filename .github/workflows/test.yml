@@ -61,6 +61,12 @@ jobs:
           source venv/bin/activate
           alembic upgrade head
 
+      - name: Debug DB schema
+        env:
+          PGPASSWORD: password
+        run: |
+          psql -h localhost -U user -d mytestdb -c '\dt'
+
       - name: Run integration tests
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
