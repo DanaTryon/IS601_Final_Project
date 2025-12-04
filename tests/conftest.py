@@ -1,4 +1,16 @@
-# tests/conftest.py
+# ======================================================================================
+# Load .env.test BEFORE importing anything from app.*
+# ======================================================================================
+import os
+from dotenv import load_dotenv
+
+# Force pytest to use the test environment
+os.environ["ENV"] = "test"
+load_dotenv(".env.test", override=True)
+
+# ======================================================================================
+# Original imports
+# ======================================================================================
 import socket
 import subprocess
 import time
@@ -16,7 +28,6 @@ from playwright.sync_api import sync_playwright, Browser, Page
 from app.database import Base, get_engine, get_sessionmaker
 from app.models.user import User
 from app.core.config import settings
-from app.database_init import drop_db
 from app.auth.jwt import get_password_hash
 
 # ======================================================================================
@@ -34,14 +45,25 @@ logger = logging.getLogger(__name__)
 fake = Faker()
 Faker.seed(12345)
 
+# Now that .env.test is loaded, settings.DATABASE_URL points to mytestdb
 test_engine = get_engine(database_url=settings.DATABASE_URL)
 TestingSessionLocal = get_sessionmaker(engine=test_engine)
+
+# ======================================================================================
+# Create/drop tables for the test database
+# ======================================================================================
+@pytest.fixture(scope="session", autouse=True)
+def create_test_tables():
+    logger.info("Creating test database tables...")
+    Base.metadata.create_all(bind=test_engine)
+    yield
+    logger.info("Dropping test database tables...")
+    Base.metadata.drop_all(bind=test_engine)
 
 # ======================================================================================
 # Helper Functions
 # ======================================================================================
 def create_fake_user() -> Dict[str, str]:
-    """Generate a dictionary of fake user data for testing."""
     return {
         "first_name": fake.first_name(),
         "last_name": fake.last_name(),
@@ -52,7 +74,6 @@ def create_fake_user() -> Dict[str, str]:
 
 @contextmanager
 def managed_db_session():
-    """Context manager for safe database session handling."""
     session = TestingSessionLocal()
     try:
         yield session
@@ -64,65 +85,8 @@ def managed_db_session():
         session.close()
 
 # ======================================================================================
-# Server Startup / Healthcheck
-# ======================================================================================
-def wait_for_server(url: str, timeout: int = 30) -> bool:
-    start_time = time.time()
-    while (time.time() - start_time) < timeout:
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                return True
-        except requests.exceptions.ConnectionError:
-            time.sleep(1)
-    return False
-
-class ServerStartupError(Exception):
-    pass
-
-# ======================================================================================
 # Database Fixtures
 # ======================================================================================
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_database(request):
-    """
-    Run Alembic migrations before tests, drop DB after unless --preserve-db is set.
-    """
-    logger.info("Applying Alembic migrations for test database...")
-    subprocess.run(["alembic", "upgrade", "head"], check=True)
-    logger.info("Test database initialized.")
-
-    yield
-
-    if not request.config.getoption("--preserve-db"):
-        logger.info("Dropping test database tables...")
-        drop_db()
-
-@pytest.fixture(scope="session", autouse=True)
-def seed_known_user(setup_test_database):
-    from sqlalchemy import inspect
-    with managed_db_session() as db:
-        inspector = inspect(db.bind)
-        if "users" not in inspector.get_table_names():
-            logger.warning("Skipping seed_known_user: users table not found")
-            return
-        existing = db.query(User).filter_by(username="johndoe").first()
-        if not existing:
-            user = User(
-                username="johndoe",
-                email="johndoe@example.com",
-                password=get_password_hash("SecurePass123!"),
-                first_name="John",
-                last_name="Doe",
-                is_active=True,
-                is_verified=True,
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            logger.info(f"Seeded known test user: {user.username}")
-
-
 @pytest.fixture
 def db_session() -> Generator[Session, None, None]:
     session = TestingSessionLocal()
@@ -135,9 +99,6 @@ def db_session() -> Generator[Session, None, None]:
     finally:
         session.close()
 
-# ======================================================================================
-# Test Data Fixtures
-# ======================================================================================
 @pytest.fixture
 def fake_user_data() -> Dict[str, str]:
     return create_fake_user()
@@ -194,7 +155,7 @@ def fastapi_server():
         stderr = process.stderr.read()
         logger.error(f"Server failed to start. Uvicorn error: {stderr}")
         process.terminate()
-        raise ServerStartupError(f"Failed to start test server on {health_url}")
+        raise RuntimeError(f"Failed to start test server on {health_url}")
 
     logger.info(f"Test server running on {server_url}.")
     yield server_url
@@ -253,4 +214,3 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "slow" in item.keywords:
                 item.add_marker(skip_slow)
-
