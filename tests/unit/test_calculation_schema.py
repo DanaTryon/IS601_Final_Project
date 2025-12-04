@@ -49,3 +49,53 @@ def test_calculation_update_inputs_too_short():
     with pytest.raises(ValidationError) as exc:
         CalculationUpdate(inputs=[42])  # only one number
     assert "inputs" in str(exc.value)
+
+# --- validate_inputs: LCM valid case ---
+def test_calculation_lcm_valid():
+    calc = CalculationCreate(
+        type="lcm",
+        inputs=[4, 6],
+        user_id=uuid4()
+    )
+    # Inputs should be cast to ints and accepted
+    assert calc.inputs == [4, 6]
+    assert calc.type == "lcm"
+
+# --- validate_inputs: LCM requires positive integers ---
+def test_calculation_lcm_negative():
+    with pytest.raises(ValidationError) as exc:
+        CalculationCreate(
+            type="lcm",
+            inputs=[-4, 6],
+            user_id=uuid4()
+        )
+    assert "positive integers" in str(exc.value)
+
+def test_calculation_lcm_zero():
+    with pytest.raises(ValidationError) as exc:
+        CalculationCreate(
+            type="lcm",
+            inputs=[0, 6],
+            user_id=uuid4()
+        )
+    assert "positive integers" in str(exc.value)
+
+def test_calculation_lcm_non_integer_float():
+    with pytest.raises(ValidationError) as exc:
+        CalculationCreate(
+            type="lcm",
+            inputs=[4.5, 6],
+            user_id=uuid4()
+        )
+    assert "positive integers" in str(exc.value)
+
+# --- validate_inputs: LCM requires exactly two numbers ---
+def test_calculation_lcm_inputs_too_many():
+    with pytest.raises(ValidationError) as exc:
+        CalculationCreate(
+            type="lcm",
+            inputs=[4, 6, 8],
+            user_id=uuid4()
+        )
+    assert "LCM requires exactly two numbers" in str(exc.value)
+

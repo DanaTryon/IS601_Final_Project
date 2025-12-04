@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 from app.database import Base
+import math
 
 class AbstractCalculation:
     """
@@ -178,6 +179,7 @@ class AbstractCalculation:
             'subtraction': Subtraction,
             'multiplication': Multiplication,
             'division': Division,
+            'lcm': LCM,
         }
         calculation_class = calculation_classes.get(calculation_type.lower())
         if not calculation_class:
@@ -354,3 +356,43 @@ class Division(Calculation):
                 raise ValueError("Cannot divide by zero.")
             result /= value
         return result
+
+class LCM(Calculation):
+    """
+    Least Common Multiple calculation subclass.
+
+    Implements LCM of two positive integers using the Euclidean algorithm.
+    Examples:
+        [4, 6] -> 12
+        [5, 7] -> 35
+    """
+    __mapper_args__ = {"polymorphic_identity": "lcm"}
+
+    def get_result(self) -> float:
+        """
+        Calculate the least common multiple (LCM) of two positive integers.
+
+        Returns:
+            int: The LCM of the two inputs
+
+        Raises:
+            ValueError: If inputs are not a list, fewer than 2 numbers provided,
+                        or if inputs are not positive integers
+        """
+        if not isinstance(self.inputs, list):
+            raise ValueError("Inputs must be a list of numbers.")
+        if len(self.inputs) != 2:
+            raise ValueError("LCM requires exactly two numbers.")
+
+        a, b = self.inputs
+        # Ensure both are integers
+        if not float(a).is_integer() or not float(b).is_integer():
+            raise ValueError("LCM is only defined for positive integers")
+        a, b = int(a), int(b)
+
+        if a <= 0 or b <= 0:
+            raise ValueError("LCM is only defined for positive integers")
+
+        return abs(a * b) // math.gcd(a, b)
+
+

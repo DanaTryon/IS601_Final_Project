@@ -16,7 +16,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime 
 
 class CalculationType(str, Enum):
     """
@@ -132,6 +132,9 @@ class CalculationBase(BaseModel):
             if any(x == 0 for x in self.inputs[1:]):
                 raise ValueError("Cannot divide by zero")
         if self.type == CalculationType.LCM:
+            # Enforce exactly two inputs
+            if len(self.inputs) > 2:
+                raise ValueError("LCM requires exactly two numbers")
             # Ensure all imputs are positive integers for LCM
             for x in self.inputs:
                 if not float(x).is_integer() or x <= 0:
