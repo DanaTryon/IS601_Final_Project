@@ -7,6 +7,7 @@ from app.models.calculation import (
     Subtraction,
     Multiplication,
     Division,
+    LCM
 )
 
 # Helper function to create a dummy user_id for testing.
@@ -59,6 +60,15 @@ def test_division_by_zero():
     division = Division(user_id=dummy_user_id(), inputs=inputs)
     with pytest.raises(ValueError, match="Cannot divide by zero."):
         division.get_result()
+
+def test_lcm_get_result():
+    """
+    Test that LCM.get_result returns the correct least common multiple.
+    """
+    inputs = [4, 6]
+    lcm = LCM(user_id=dummy_user_id(), inputs=inputs)
+    result = lcm.get_result()
+    assert result == 12, f"Expected 12, got {result}"
 
 def test_calculation_factory_addition():
     """
@@ -116,6 +126,20 @@ def test_calculation_factory_division():
     assert isinstance(calc, Division), "Factory did not return a Division instance."
     assert calc.get_result() == 10, "Incorrect division result."
 
+def test_calculation_factory_lcm():
+    """
+    Test the Calculation.create factory method for LCM.
+    """
+    inputs = [5, 10]
+    calc = Calculation.create(
+        calculation_type='lcm',
+        user_id=dummy_user_id(),
+        inputs=inputs,
+    )
+    # Expected LCM of 5 and 10 is 10
+    assert isinstance(calc, LCM), "Factory did not return an LCM instance."
+    assert calc.get_result() == 10, "Incorrect LCM result."
+
 def test_calculation_factory_invalid_type():
     """
     Test that Calculation.create raises a ValueError for an unsupported calculation type.
@@ -150,3 +174,11 @@ def test_invalid_inputs_for_division():
     division = Division(user_id=dummy_user_id(), inputs=[10])
     with pytest.raises(ValueError, match="Inputs must be a list with at least two numbers."):
         division.get_result()
+
+def test_invalid_inputs_for_lcm():
+    """
+    Test that providing non-integer inputs to LCM.get_result raises a ValueError.
+    """
+    lcm = LCM(user_id=dummy_user_id(), inputs=[4, 5.5])
+    with pytest.raises(ValueError, match="LCM is only defined for positive integers"):
+        lcm.get_result()    
