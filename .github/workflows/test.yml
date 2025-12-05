@@ -106,7 +106,7 @@ jobs:
           DB_NAME: mytestdb
         run: |
           source venv/bin/activate
-          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST@$DB_PORT/$DB_NAME"
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/unit/ --ignore=tests/unit/test_jwt.py --ignore=tests/unit/test_redis.py --cov=app --cov-append
 
       - name: Run integration tests
@@ -118,7 +118,7 @@ jobs:
           DB_NAME: mytestdb
         run: |
           source venv/bin/activate
-          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST@$DB_PORT/$DB_NAME"
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/integration/ --cov=app --cov-append
 
       - name: Run E2E tests
@@ -130,7 +130,7 @@ jobs:
           DB_NAME: mytestdb
         run: |
           source venv/bin/activate
-          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST@$DB_PORT/$DB_NAME"
+          export DATABASE_URL="postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
           pytest tests/e2e/ --cov=app --cov-append
 
       - name: Merge coverage reports
